@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Configuration;
+using System.IO;
 using System.Net;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -11,8 +12,21 @@ namespace auth0connection
     {
         private static void Main(string[] args)
         {
+            var authorizationToken = Authorization();
+
+            ApiGet(authorizationToken);
+
+            ApiPost(authorizationToken);
+
+            // Leave console open
+            Console.WriteLine("// Press any key to quit...");
+            while (Console.ReadKey().KeyChar == 0) { }
+        }
+
+        private static ResponseBodyContent Authorization()
+        {
             // Initialize a request to Auth0
-            var authUrl = ConfigurationManager.AppSettings["auth_url"];
+            var authUrl = ConfigurationManager.AppSettings["auth_token_url"];
             var client = new RestClient(authUrl);
             var request = new RestRequest(Method.POST);
             request.AddHeader("content-type", "application/json");
@@ -23,34 +37,70 @@ namespace auth0connection
 
             // Getting Auth0 access token
             var response = client.Execute(request);
-            var responseContent = JsonConvert.DeserializeObject<ResponseBodyContent>(response.Content);
+            var responseContent = response.Content.ParseToResponseBodyContent();
 
             // Output if we got the token from Auth0
-            Console.WriteLine($"Getting Auth0 token: {(response.StatusCode == HttpStatusCode.OK ? "Succeeded" : "Failed")}");
+            Console.WriteLine($"// Auth0 GET Token Status: {(response.StatusCode == HttpStatusCode.OK ? "Succeeded" : $"Failed ({response.StatusCode})")}");
+            Console.WriteLine($"// Auth0 GET Token Result:\n{response.Content}");
 
-            // Initialize a request to our API
-            var apiUrl = ConfigurationManager.AppSettings["api_url"];
-            client = new RestClient(apiUrl);
-            request = new RestRequest(Method.GET);
+            return responseContent;
+        }
+
+        private static void ApiGet(ResponseBodyContent authorizationToken)
+        {
+            // Initialize a GET request to our API
+            var apiUrl = ConfigurationManager.AppSettings["api_get_url"];
+            var client = new RestClient(apiUrl);
+            var request = new RestRequest(Method.GET);
 
             // Set the token in the authorization header
             // TODO: Don't request a new token every time, save it in your cache.
-            request.AddHeader("authorization", responseContent.ToString());
+            request.AddHeader("Authorization", authorizationToken.ToString());
 
-            // Getting an object from the API
-            response = client.Execute(request);
-            var apiRequestSucceeded = response.StatusCode == HttpStatusCode.OK;
-            
+            // GET an object from the API
+            var response = client.Execute(request);
+            var apiResponseSucceeded = response.StatusCode == HttpStatusCode.OK;
+
             // Output the api response
-            Console.WriteLine($"Getting Api Response: {(apiRequestSucceeded ? "Succeeded" : "Failed")}");
-            if (apiRequestSucceeded)
+            Console.WriteLine($"// API GET Status: {(apiResponseSucceeded ? "Succeeded" : $"Failed ({response.StatusCode})")}");
+            if (apiResponseSucceeded)
             {
-                Console.WriteLine($"Api Response: {response.Content}");
+                Console.WriteLine($"// API GET Result:\n{response.Content}");
             }
 
-            // Leave console open
-            Console.WriteLine("Press any key to quit...");
-            while (Console.ReadKey().KeyChar == 0) { }
+            // TODO: Then deserialize the response content JSON to a class.
+            // e.g. var myClass = JsonConvert.DeserializeObject<ResponseBodyContent>(response.content);
+        }
+
+        private static void ApiPost(ResponseBodyContent authorizationToken)
+        {
+            // Initialize a POST request to our API
+            var apiUrl = ConfigurationManager.AppSettings["api_post_url"];
+            var client = new RestClient(apiUrl);
+            var request = new RestRequest(Method.POST);
+            request.AddHeader("content-type", "application/json");
+
+            // Set the token in the authorization header
+            // TODO: Don't request a new token every time, save it in your cache.
+            request.AddHeader("Authorization", authorizationToken.ToString());
+
+            // Set the request JSON body from a path to test the api
+            // TODO: Instead, use a class to serialize it to a JSON object and POST this to the API.
+            // e.g. var json = JsonConvert.SerializeObject(myClass);
+            var apiPostJsonPath = ConfigurationManager.AppSettings["api_post_json_path"];
+            var apiPostJsonBody = !File.Exists(apiPostJsonPath) ? "" : new StreamReader(apiPostJsonPath).ReadToEnd();
+            request.AddJsonBody(apiPostJsonBody);
+
+            // POST an object to the API
+            var response = client.Execute(request);
+            var apiResponseSucceeded = response.StatusCode == HttpStatusCode.OK;
+
+            // Output the api response
+            Console.WriteLine($"// API POST Status: {(apiResponseSucceeded ? "Succeeded" : $"Failed ({response.StatusCode})")}");
+            if (apiResponseSucceeded)
+            {
+                Console.WriteLine($"// API POST Result:\n{response.Content}");
+            }
         }
     }
 
@@ -76,7 +126,7 @@ namespace auth0connection
     {
         public string AccessToken { get; set; }
         public string TokenType { get; set; }
-        public string ExpiresAt { get; set; }
+        public string ExpiresIn { get; set; }
 
         public override string ToString()
         {
@@ -97,6 +147,18 @@ namespace auth0connection
                 }
             };
             return JsonConvert.SerializeObject(value, serializedSettings);
+        }
+
+        public static ResponseBodyContent ParseToResponseBodyContent(this string value)
+        {
+            var serializedSettings = new JsonSerializerSettings
+            {
+                ContractResolver = new DefaultContractResolver
+                {
+                    NamingStrategy = new SnakeCaseNamingStrategy()
+                }
+            };
+            return JsonConvert.DeserializeObject<ResponseBodyContent>(value, serializedSettings);
         }
     }
 }
