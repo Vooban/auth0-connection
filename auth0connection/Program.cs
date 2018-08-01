@@ -88,14 +88,9 @@ namespace auth0connection
 
             // GET an object from the API
             var response = client.Execute(request);
-            var apiResponseSucceeded = OkStatus.Contains(response.StatusCode);
 
             // Output the api response
-            Console.WriteLine($"// API GET Status: {(apiResponseSucceeded ? "Succeeded" : $"Failed ({response.StatusCode})")}");
-            if (!string.IsNullOrEmpty(response.Content))
-            {
-                Console.WriteLine($"// API GET Result:\n{response.Content}");
-            }
+            OutputResponseStatus(response, "GET");
 
             // TODO: Then deserialize the response content JSON to a class.
             // e.g. var myClass = JsonConvert.DeserializeObject<ResponseBodyContent>(response.content);
@@ -121,14 +116,9 @@ namespace auth0connection
 
             // POST an object to the API
             var response = client.Execute(request);
-            var apiResponseSucceeded = OkStatus.Contains(response.StatusCode);
 
             // Output the api response
-            Console.WriteLine($"// API POST Status: {(apiResponseSucceeded ? "Succeeded" : $"Failed ({response.StatusCode})")}");
-            if (!string.IsNullOrEmpty(response.Content))
-            {
-                Console.WriteLine($"// API POST Result:\n{response.Content}");
-            }
+            OutputResponseStatus(response, "POST");
         }
 
         private static void ApiPut(ResponseBodyContent authorizationToken, string apiUrl)
@@ -151,14 +141,9 @@ namespace auth0connection
 
             // PUT an object to the API
             var response = client.Execute(request);
-            var apiResponseSucceeded = OkStatus.Contains(response.StatusCode);
-
+            
             // Output the api response
-            Console.WriteLine($"// API PUT Status: {(apiResponseSucceeded ? "Succeeded" : $"Failed ({response.StatusCode})")}");
-            if (!string.IsNullOrEmpty(response.Content))
-            {
-                Console.WriteLine($"// API PUT Result:\n{response.Content}");
-            }
+            OutputResponseStatus(response, "PUT");
         }
 
         private static void ApiDelete(ResponseBodyContent authorizationToken, string apiUrl)
@@ -173,13 +158,22 @@ namespace auth0connection
 
             // DELETE an object from the API
             var response = client.Execute(request);
-            var apiResponseSucceeded = OkStatus.Contains(response.StatusCode);
 
             // Output the api response
-            Console.WriteLine($"// API DELETE Status: {(apiResponseSucceeded ? "Succeeded" : $"Failed ({response.StatusCode})")}");
+            OutputResponseStatus(response, "DELETE");
+        }
+
+        private static void OutputResponseStatus(IRestResponse response, string responseMethod)
+        {
+            var apiResponseSucceeded = OkStatus.Contains(response.StatusCode);
+
+            // Output the api response status
+            Console.WriteLine($"// API {responseMethod} Status: {(apiResponseSucceeded ? "Succeeded" : "Failed")} ({response.StatusCode})");
+
+            // Output the api response content
             if (!string.IsNullOrEmpty(response.Content))
             {
-                Console.WriteLine($"// API DELETE Result:\n{response.Content}");
+                Console.WriteLine($"// API {responseMethod} Result:\n{response.Content}");
             }
         }
     }
